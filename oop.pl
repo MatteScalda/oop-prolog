@@ -9,18 +9,23 @@ def_class(CLASS_NAME, PARENTS):-
     assert(class(CLASS_NAME, PARENTS, [])).
 
 %% def_class/3 definisce una classe con parents e attributi
-def_class(CLASS_NAME, PARENTS, [P | PARTS]):-
+def_class(CLASS_NAME, PARENTS, PARTS):-
     atom(CLASS_NAME),
     is_list_atoms(PARENTS),
     are_classes(PARENTS),
-    assert(class(CLASS_NAME, PARENTS, PARTS)).
-
+    assert(class(CLASS_NAME, PARENTS, PARTS)),
+    get_methods(PARTS, METHODS),
+    load_methods(METHODS, CLASS_NAME).
+/*
 def_class(CLASS_NAME, PARENTS, PART):-
     atom(CLASS_NAME),
     is_list_atoms(PARENTS),
     are_classes(PARENTS),
-    assert(class(CLASS_NAME, PARENTS, PARTS)).
-    
+    assert(class(CLASS_NAME, PARENTS, PART))
+    get_methods(PARTS, METHODS),
+    load_methods(METHODS, CLASS_NAME).
+*/
+
 %%make
 %% make/2 crea un'istanza di una classe
 make(INSTANCE_NAME, CLASS_NAME):-
@@ -109,3 +114,50 @@ fieldx(INSTANCE, [FIELD | FIELD_NAMES], RESULT):-
     RESULT = [FIELD = VAL | RESULT_TAIL],
     !.
 
+%% get_methods/2 caso base
+get_methods([], []).
+
+%% get_methods/2 prende i metodi e li mette in METHODS
+get_methods([P | PARTS], [H|METHODS]) :-
+    is_method(P),
+    !,
+    get_methods(PARTS, METHODS).
+
+get_methods([P | PARTS], METHODS) :-
+    get_methods(PARTS, METHODS).
+
+%% is_methods/1 dice se è un metodo
+is_method(PART):-
+    sub_atom(PART, 0, 6, _, PART_TYPE),
+    PART_TYPE = method.
+
+%% load_methods/2 carica i metodi
+load_methods([M | METHODS], CLASS_NAME):-
+    load_method(M, CLASS_NAME),
+    load_methods(METHODS, CLASS_NAME).
+%% caso base
+load_methods([], _).
+
+%% load_method/2 carica un metodo nella base di conoscenza
+load_method(method(METHOD_NAME, ARGS, BODY), CLASS_NAME):-
+    append([this], ARGS, ARGS_THIS),
+    append([METHOD_NAME], ARGS_THIS, METHOD_HEAD),
+    TERM =.. METHOD_HEAD.
+    %% MANCANO TUTTI I CONTROLLI PER IL BODY
+    %% CONTROLLARE CHE IL METODO SIA CHIAMABILE DA UNA CERTA ISTANZA
+    replace_words(BODY, this, This, REPLACED_BODY),
+    term_to_atom(METHOD, REPLACED_BODY),
+    assert(METHOD).
+    
+
+%% replace_words/4 sostituisce tutte le occorrenze di una parola in una stringa con un'altra parola
+replace_words(STRING, WORD, REPLACEMENT, RESULT):-
+    atomic_list_concat(LIST, ' ', STRING),  % divide la stringa in una lista di parole
+    maplist(replace_word(WORD, REPLACEMENT), LIST, REPLACED_LIST),  % sostituisce tutte le occorrenze della parola
+    atomic_list_concat(REPLACED_LIST, ' ', RESULT).  % ricongiunge la lista di parole in una stringa
+
+%% replace_word/4 se la parola è la parola da sostituire, fallisce
+replace_word(WORD, REPLACEMENT, WORD, REPLACEMENT):-
+    !.
+%% altrimenti, sostituisce la parola con la parola di sostituzione
+replace_word(_, _, OTHER, OTHER).
