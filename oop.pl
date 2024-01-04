@@ -95,7 +95,7 @@ inst(INSTANCE_NAME, INSTANCE):-
     instance(INSTANCE_NAME, _, INSTANCE).
 
 %% field/3 recupera il valore di un campo
-field(INSTANCE_NAME, FIELD_NAME, RESULT):-
+field(INSTANCE_NAME, FIELD_NAME, RESULT):- %% DEVE CONTROLLARE PARENTS
     atom(INSTANCE_NAME),
     is_instance(INSTANCE_NAME),
     var(RESULT),
@@ -115,10 +115,10 @@ fieldx(INSTANCE, [FIELD | FIELD_NAMES], RESULT):-
     !.
 
 %% get_methods/2 caso base
-get_methods([], []).
+get_methods([], _).
 
 %% get_methods/2 prende i metodi e li mette in METHODS
-get_methods([P | PARTS], [H|METHODS]) :-
+get_methods([P | PARTS], [P | METHODS]) :-
     is_method(P),
     !,
     get_methods(PARTS, METHODS).
@@ -128,36 +128,67 @@ get_methods([P | PARTS], METHODS) :-
 
 %% is_methods/1 dice se è un metodo
 is_method(PART):-
-    sub_atom(PART, 0, 6, _, PART_TYPE),
+    term_to_atom(PART, ATOM_PART),
+    sub_atom(ATOM_PART, 0, 6, _, PART_TYPE),
     PART_TYPE = method.
 
 %% load_methods/2 carica i metodi
 load_methods([M | METHODS], CLASS_NAME):-
+    %%Ridondante ma senza non va (non so perchè)
+    is_method(M),
     load_method(M, CLASS_NAME),
     load_methods(METHODS, CLASS_NAME).
 %% caso base
 load_methods([], _).
 
 %% load_method/2 carica un metodo nella base di conoscenza
-load_method(method(METHOD_NAME, ARGS, BODY), CLASS_NAME):-
-    append([this], ARGS, ARGS_THIS),
-    append([METHOD_NAME], ARGS_THIS, METHOD_HEAD),
-    TERM =.. METHOD_HEAD.
-    %% MANCANO TUTTI I CONTROLLI PER IL BODY
-    %% CONTROLLARE CHE IL METODO SIA CHIAMABILE DA UNA CERTA ISTANZA
-    replace_words(BODY, this, This, REPLACED_BODY),
-    term_to_atom(METHOD, REPLACED_BODY),
-    assert(METHOD).
-    
+load_method(method(METHOD_NAME, ARGS, BODY), CLASS_NAME):- 
+    append(['this'], ARGS, ARGS_THIS),
+    term_to_atom(METHOD_NAME, ATOM_METHOD_NAME),
+    append([ATOM_METHOD_NAME], ARGS_THIS, HEAD),
+    METHOD_HEAD =.. HEAD,
 
+    term_to_atom(METHOD_NAME, ATOM_NAME),
+    term_to_atom(METHOD_HEAD, ATOM_METHOD_HEAD),
+    term_to_atom(BODY, ATOM_BODY),
+    term_to_atom(CLASS_NAME, ATOM_CLASS),
+    %aggiunge al body il controllo per vedere se il metodo esiste nell'istanza
+    atom_concat('method_exists(', ATOM_CLASS, CHECK_CALL_1), 
+    atom_concat(CHECK_CALL_1, ', ', CHECK_CALL_2), 
+    atom_concat(CHECK_CALL_2, ATOM_NAME, CHECK_CALL), 
+    atom_concat(CHECK_CALL, '),', TO_APPEND), 
+
+%% DEVE CONTROLLARE CHE SIA ISTANZA DI CLASS_NAME
+    %%is_instance('this', CLASS_NAME), !,
+
+    atom_concat(TO_APPEND, ATOM_BODY, BODY_CHECKED),
+    atom_concat(ATOM_METHOD_HEAD, ' :- ', METHOD_WOUT_BODY),
+    atom_concat(METHOD_WOUT_BODY, BODY_CHECKED, METHOD_WITHOUT_END),
+    atom_concat(METHOD_WITHOUT_END, '.', METHOD_WOUT_THIS),
+    replace_words(METHOD_WOUT_THIS, this, THIS, REPLACED_BODY), %% NON FUNZIONA
+    atom_to_term(REPLACED_BODY, METHOD, _),
+    assert(METHOD).
+
+%% NON FUNZIONA PORCA TROIA
 %% replace_words/4 sostituisce tutte le occorrenze di una parola in una stringa con un'altra parola
 replace_words(STRING, WORD, REPLACEMENT, RESULT):-
-    atomic_list_concat(LIST, ' ', STRING),  % divide la stringa in una lista di parole
-    maplist(replace_word(WORD, REPLACEMENT), LIST, REPLACED_LIST),  % sostituisce tutte le occorrenze della parola
-    atomic_list_concat(REPLACED_LIST, ' ', RESULT).  % ricongiunge la lista di parole in una stringa
+    atomic_list_concat(LIST, ' ', STRING),  
+    % divide la stringa in una lista di parole
+    maplist(replace_word(WORD, REPLACEMENT), LIST, REPLACED_LIST),  
+    % sostituisce tutte le occorrenze della parola
+    atomic_list_concat(REPLACED_LIST, ' ', RESULT).  
+    % ricongiunge la lista di parole in una stringa
 
 %% replace_word/4 se la parola è la parola da sostituire, fallisce
 replace_word(WORD, REPLACEMENT, WORD, REPLACEMENT):-
     !.
 %% altrimenti, sostituisce la parola con la parola di sostituzione
 replace_word(_, _, OTHER, OTHER).
+
+method_exists(CLASS_NAME, METHOD_NAME):- %% DEVE CONTROLLARE PARENTS
+    atom(CLASS_NAME),
+    atom(METHOD_NAME),
+    is_class(CLASS_NAME),
+    class(CLASS_NAME, _ , PARTS),
+    get_methods(PARTS, METHODS),
+    member(method(METHOD_NAME, _, _), METHODS).
