@@ -6,14 +6,17 @@ def_class(CLASS_NAME, PARENTS):-
     atom(CLASS_NAME),
     is_list_atoms(PARENTS),
     are_classes(PARENTS),
-    assert(class(CLASS_NAME, PARENTS, [])).
+    get_classes_parts(PARENTS, PARENTS_PARTS),
+    assert(class(CLASS_NAME, PARENTS, PARENTS_PARTS)).
 
 %% def_class/3 definisce una classe con parents e attributi
 def_class(CLASS_NAME, PARENTS, PARTS):-
     atom(CLASS_NAME),
     is_list_atoms(PARENTS),
     are_classes(PARENTS),
-    assert(class(CLASS_NAME, PARENTS, PARTS)),
+    get_classes_parts(PARENTS, PARENTS_PARTS),
+    append(PARENTS_PARTS, PARTS, ALL_PARTS),
+    assert(class(CLASS_NAME, PARENTS, ALL_PARTS)),
     get_methods(PARTS, METHODS),
     load_methods(METHODS, CLASS_NAME).
 /*
@@ -29,23 +32,29 @@ def_class(CLASS_NAME, PARENTS, PART):-
 %%make
 %% make/2 crea un'istanza di una classe
 make(INSTANCE_NAME, CLASS_NAME):-
-    make(INSTANCE_NAME, CLASS_NAME, []).
+    make(INSTANCE_NAME, CLASS_NAME, []),
+    !.
 
 %% make/3 crea un'istanza di una classe (instance-name è atomo)
 make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
     atom(INSTANCE_NAME),
+    !,
     atom(CLASS_NAME),
     is_class(CLASS_NAME),
-    assert(instance(INSTANCE_NAME, CLASS_NAME, FIELDS)),
-    !.
+    get_class_parts(CLASS_NAME, PARTS),
+    get_fields(PARTS, CLASS_FIELDS),
+    extract_fields(CLASS_FIELDS, FIELDS_EXTRACTED),
+    overwrite_fields(FIELDS_EXTRACTED, FIELDS, FIELDS_OVERWRITTEN),
+    assert(instance(INSTANCE_NAME, CLASS_NAME, FIELDS_OVERWRITTEN)).
 
+%% //TODO capire che cazzo fanno
 %% make/3 crea un'istanza di una classe (instance-name è variabile)
 make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
     var(INSTANCE_NAME),
+    !,
     atom(CLASS_NAME),
     is_class(CLASS_NAME),
-    INSTANCE = instance(INSTANCE_NAME, CLASS_NAME, FIELDS),
-    !.
+    INSTANCE = instance(INSTANCE_NAME, CLASS_NAME, FIELDS).
 
 %% make/3 crea un'istanza di una classe (instance-name è termine)
 make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
@@ -53,7 +62,8 @@ make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
     is_class(CLASS_NAME),
     INSTANCE_NAME =.. Instance,
     second(Instance, X),
-    is_instance(X), !.
+    is_instance(X), 
+    !.
 
 
 %% utilities
@@ -126,11 +136,28 @@ get_methods([P | PARTS], [P | METHODS]) :-
 get_methods([P | PARTS], METHODS) :-
     get_methods(PARTS, METHODS).
 
+    %% get_methods/2 caso base
+get_fields([], _).
+
+%% get_methods/2 prende i metodi e li mette in METHODS
+get_fields([P | PARTS], [P | FIELDS]) :-
+    is_field(P),
+    !,
+    get_fields(PARTS, FIELDS).
+
+get_fields([P | PARTS], FIELDS) :-
+    get_fields(PARTS, FIELDS).
+
 %% is_methods/1 dice se è un metodo
 is_method(PART):-
     term_to_atom(PART, ATOM_PART),
     sub_atom(ATOM_PART, 0, 6, _, PART_TYPE),
     PART_TYPE = method.
+    
+is_field(PART):-
+    term_to_atom(PART, ATOM_PART),
+    sub_atom(ATOM_PART, 0, 5, _, PART_TYPE),
+    PART_TYPE = field.
 
 %% load_methods/2 carica i metodi
 load_methods([M | METHODS], CLASS_NAME):-
@@ -185,10 +212,58 @@ replace_word(WORD, REPLACEMENT, WORD, REPLACEMENT):-
 %% altrimenti, sostituisce la parola con la parola di sostituzione
 replace_word(_, _, OTHER, OTHER).
 
-method_exists(CLASS_NAME, METHOD_NAME):- %% DEVE CONTROLLARE PARENTS
+%% method_exists/2 dice se il metodo esiste
+method_exists(CLASS_NAME, METHOD_NAME):-
     atom(CLASS_NAME),
     atom(METHOD_NAME),
     is_class(CLASS_NAME),
     class(CLASS_NAME, _ , PARTS),
     get_methods(PARTS, METHODS),
     member(method(METHOD_NAME, _, _), METHODS).
+
+%% get_classes_parts/2 prende le parti di più classi
+%% caso base
+get_classes_parts([], _).
+
+%% caso ricorsivo
+get_classes_parts([C | CLASSES], ALL_PARTS):-
+    are_classes(CLASSES),
+    get_class_parts(C, PARTS),
+    get_classes_parts(CLASSES, REST_PARTS),
+    append(PARTS, REST_PARTS, ALL_PARTS).
+
+%% get_class_parts/2 prende le parti di una classe
+get_class_parts(CLASS, PART):-
+    atom(CLASS),
+    is_class(CLASS),
+    class(CLASS, _, PART).
+
+%% extract_field/3 estrae il nome e il valore di un campo
+extract_field(FIELD, NAME, VALUE) :- 
+    FIELD =.. [_, NAME, VALUE].
+
+%% extract_fields/2 estrae il nome e il valore di più campi
+%% caso base
+extract_fields([], []).
+%% caso ricorsivo
+extract_fields([FIELD | FIELDS], [NAME = VALUE | RESULT]) :-
+    extract_field(FIELD, NAME, VALUE),
+    extract_fields(FIELDS, RESULT).
+
+%% overwrite_fields/3 sovrascrive i campi
+%% caso base
+overwrite_fields([], [], _).
+%% caso ricorsivo
+overwrite_fields([FIELD = VALUE | FIELDS], [FIELD = VALUE_2 | FIELDS_2], [FIELD = VALUE_2 | RESULT]):-
+    atom(FIELD),
+    atom(VALUE),
+    atom(VALUE_2),
+    var(RESULT),
+    overwrite_fields(FIELDS, FIELDS_2, RESULT),
+    !.
+%% caso ricorsivo 2
+overwrite_fields([FIELD = VALUE | FIELDS], FIELDS_2, [FIELD = VALUE | RESULT]):-
+    atom(FIELD),
+    atom(VALUE),
+    var(RESULT),
+    overwrite_fields(FIELDS, FIELDS_2, RESULT).
