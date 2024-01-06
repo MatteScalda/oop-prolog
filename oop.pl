@@ -19,15 +19,6 @@ def_class(CLASS_NAME, PARENTS, PARTS):-
     assert(class(CLASS_NAME, PARENTS, ALL_PARTS)),
     get_methods(PARTS, METHODS),
     load_methods(METHODS, CLASS_NAME).
-/*
-def_class(CLASS_NAME, PARENTS, PART):-
-    atom(CLASS_NAME),
-    is_list_atoms(PARENTS),
-    are_classes(PARENTS),
-    assert(class(CLASS_NAME, PARENTS, PART))
-    get_methods(PARTS, METHODS),
-    load_methods(METHODS, CLASS_NAME).
-*/
 
 %%make
 %% make/2 crea un'istanza di una classe
@@ -35,7 +26,7 @@ make(INSTANCE_NAME, CLASS_NAME):-
     make(INSTANCE_NAME, CLASS_NAME, []),
     !.
 
-%% make/3 crea un'istanza di una classe (instance-name è atomo)
+%% make/3 crea un'istanza di una classe (instance-name è atomo) 
 make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
     atom(INSTANCE_NAME),
     !,
@@ -185,32 +176,33 @@ load_method(method(METHOD_NAME, ARGS, BODY), CLASS_NAME):-
     atom_concat(CHECK_CALL_2, ATOM_NAME, CHECK_CALL), 
     atom_concat(CHECK_CALL, '),', TO_APPEND), 
 
-%% DEVE CONTROLLARE CHE SIA ISTANZA DI CLASS_NAME
-    %%is_instance('this', CLASS_NAME), !,
+    %%is_instance('this', CLASS_NAME), !, //TODO: va in loop quando fallisce, capire perchè
+    atom_concat(TO_APPEND, 'is_instance(this, ', CHECK_INSTANCE_1),
+    atom_concat(CHECK_INSTANCE_1, ATOM_CLASS, CHECK_INSTANCE_2),
+    atom_concat(CHECK_INSTANCE_2, '),', CHECK_INSTANCE),
 
-    atom_concat(TO_APPEND, ATOM_BODY, BODY_CHECKED),
+    atom_concat(CHECK_INSTANCE, ATOM_BODY, BODY_CHECKED),
     atom_concat(ATOM_METHOD_HEAD, ' :- ', METHOD_WOUT_BODY),
     atom_concat(METHOD_WOUT_BODY, BODY_CHECKED, METHOD_WITHOUT_END),
-    atom_concat(METHOD_WITHOUT_END, '.', METHOD_WOUT_THIS),
-    replace_words(METHOD_WOUT_THIS, this, THIS, REPLACED_BODY), %% NON FUNZIONA
+    atom_concat(METHOD_WITHOUT_END, ',!.', METHOD_WOUT_THIS),
+    replace_words(METHOD_WOUT_THIS, 'this', 'THIS', REPLACED_BODY), %% NON FUNZIONA
     atom_to_term(REPLACED_BODY, METHOD, _),
     assert(METHOD).
 
-%% NON FUNZIONA PORCA TROIA
 %% replace_words/4 sostituisce tutte le occorrenze di una parola in una stringa con un'altra parola
-replace_words(STRING, WORD, REPLACEMENT, RESULT):-
-    atomic_list_concat(LIST, ' ', STRING),  
-    % divide la stringa in una lista di parole
-    maplist(replace_word(WORD, REPLACEMENT), LIST, REPLACED_LIST),  
-    % sostituisce tutte le occorrenze della parola
-    atomic_list_concat(REPLACED_LIST, ' ', RESULT).  
-    % ricongiunge la lista di parole in una stringa
-
-%% replace_word/4 se la parola è la parola da sostituire, fallisce
-replace_word(WORD, REPLACEMENT, WORD, REPLACEMENT):-
-    !.
-%% altrimenti, sostituisce la parola con la parola di sostituzione
-replace_word(_, _, OTHER, OTHER).
+replace_words(STRING, SUBSTRING, REPLACEMENT, RESULT) :-
+    atom(STRING),
+    atom(SUBSTRING),
+    atom(REPLACEMENT),
+    var(RESULT),
+    (   
+        sub_atom(STRING, Before, Length, After, SUBSTRING)
+    ->  sub_atom(STRING, 0, Before, _, Start),
+        sub_atom(STRING, _, After, 0, End),
+        atomic_list_concat([Start, REPLACEMENT, End], TempResult),
+        replace_words(TempResult, SUBSTRING, REPLACEMENT, RESULT)
+    ;   RESULT = STRING
+    ).
 
 %% method_exists/2 dice se il metodo esiste
 method_exists(CLASS_NAME, METHOD_NAME):-
@@ -248,22 +240,24 @@ extract_fields([], []).
 %% caso ricorsivo
 extract_fields([FIELD | FIELDS], [NAME = VALUE | RESULT]) :-
     extract_field(FIELD, NAME, VALUE),
-    extract_fields(FIELDS, RESULT).
+    extract_fields(FIELDS, RESULT),
+    !.
 
 %% overwrite_fields/3 sovrascrive i campi
 %% caso base
-overwrite_fields([], [], _).
+overwrite_fields([], _, _):-  %%Caso in cui ho inserito un campo non presente nella classe
+    false,
+    !.
+overwrite_fields([], [], _):-
+    !.
 %% caso ricorsivo
-overwrite_fields([FIELD = VALUE | FIELDS], [FIELD = VALUE_2 | FIELDS_2], [FIELD = VALUE_2 | RESULT]):-
+overwrite_fields([FIELD = VALUE | FIELDS], [FIELD = VALUE_2 | FIELDS_2], [FIELD = VALUE_2 | RESULT]):-     
     atom(FIELD),
-    atom(VALUE),
-    atom(VALUE_2),
     var(RESULT),
     overwrite_fields(FIELDS, FIELDS_2, RESULT),
     !.
 %% caso ricorsivo 2
 overwrite_fields([FIELD = VALUE | FIELDS], FIELDS_2, [FIELD = VALUE | RESULT]):-
     atom(FIELD),
-    atom(VALUE),
     var(RESULT),
     overwrite_fields(FIELDS, FIELDS_2, RESULT).
