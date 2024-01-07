@@ -48,7 +48,7 @@ make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
     INSTANCE = instance(INSTANCE_NAME, CLASS_NAME, FIELDS).
 
 %% make/3 crea un'istanza di una classe (instance-name è termine)
-make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
+make(INSTANCE_NAME, CLASS_NAME, _):-
     atom(CLASS_NAME),
     is_class(CLASS_NAME),
     INSTANCE_NAME =.. Instance,
@@ -59,7 +59,7 @@ make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
 
 %% utilities
 
-%% is_list_atoms/1 dice se è una lista di atomi --> NON PRESENTE NEL TESTO
+%% is_list_atoms/1 dice se è una lista di atomi
 is_list_atoms([]).
 is_list_atoms([A|ATOMS]):-
     atom(A),
@@ -72,7 +72,8 @@ is_class(CLASS_NAME):-
     current_predicate(class/1), !,
     class(CLASS_NAME, _, _).
 
-%% are_classes/1 dice se una lista è formata da classi precedentemente dichiarate
+%% are_classes/1 dice se una lista è formata da 
+%% classi precedentemente dichiarate
 are_classes([]).
 are_classes([CLASS | CLASS_NAMES]):-
     is_class(CLASS),
@@ -87,7 +88,8 @@ is_instance(INSTANCE_NAME):-
 is_instance(INSTANCE_NAME, CLASS_NAME):-
     atom(INSTANCE_NAME),
     atom(CLASS_NAME),
-    instance(INSTANCE_NAME, CLASS_NAME, _).
+    instance(INSTANCE_NAME, CLASS_NAME, _);
+    is_a_child(INSTANCE_NAME, CLASS_NAME).
 
 %% inst/2 recupera l'istanza
 inst(INSTANCE_NAME, INSTANCE):-
@@ -96,7 +98,7 @@ inst(INSTANCE_NAME, INSTANCE):-
     instance(INSTANCE_NAME, _, INSTANCE).
 
 %% field/3 recupera il valore di un campo
-field(INSTANCE_NAME, FIELD_NAME, RESULT):- %% DEVE CONTROLLARE PARENTS
+field(INSTANCE_NAME, FIELD_NAME, RESULT):-
     atom(INSTANCE_NAME),
     is_instance(INSTANCE_NAME),
     var(RESULT),
@@ -124,19 +126,19 @@ get_methods([P | PARTS], [P | METHODS]) :-
     !,
     get_methods(PARTS, METHODS).
 
-get_methods([P | PARTS], METHODS) :-
+get_methods([_ | PARTS], METHODS) :-
     get_methods(PARTS, METHODS).
 
-    %% get_methods/2 caso base
+%% get_fields/2 caso base
 get_fields([], _).
 
-%% get_methods/2 prende i metodi e li mette in METHODS
+%% get_fields/2 prende i metodi e li mette in METHODS
 get_fields([P | PARTS], [P | FIELDS]) :-
     is_field(P),
     !,
     get_fields(PARTS, FIELDS).
 
-get_fields([P | PARTS], FIELDS) :-
+get_fields([_ | PARTS], FIELDS) :-
     get_fields(PARTS, FIELDS).
 
 %% is_methods/1 dice se è un metodo
@@ -170,37 +172,40 @@ load_method(method(METHOD_NAME, ARGS, BODY), CLASS_NAME):-
     term_to_atom(METHOD_HEAD, ATOM_METHOD_HEAD),
     term_to_atom(BODY, ATOM_BODY),
     term_to_atom(CLASS_NAME, ATOM_CLASS),
+
+    %%is_instance('this', CLASS_NAME), !,
+    atom_concat('is_instance(this, ', ATOM_CLASS, CHECK_INSTANCE_1),
+    atom_concat(CHECK_INSTANCE_1, '),!,', CHECK_INSTANCE),
+
     %aggiunge al body il controllo per vedere se il metodo esiste nell'istanza
-    atom_concat('method_exists(', ATOM_CLASS, CHECK_CALL_1), 
-    atom_concat(CHECK_CALL_1, ', ', CHECK_CALL_2), 
-    atom_concat(CHECK_CALL_2, ATOM_NAME, CHECK_CALL), 
+    atom_concat(CHECK_INSTANCE, 'method_exists(', CHECK_CALL_1), 
+    atom_concat(CHECK_CALL_1, ATOM_CLASS, CHECK_CALL_2),
+    atom_concat(CHECK_CALL_2, ', ', CHECK_CALL_3), 
+    atom_concat(CHECK_CALL_3, ATOM_NAME, CHECK_CALL), 
     atom_concat(CHECK_CALL, '),', TO_APPEND), 
 
-    %%is_instance('this', CLASS_NAME), !, //TODO: va in loop quando fallisce, capire perchè
-    atom_concat(TO_APPEND, 'is_instance(this, ', CHECK_INSTANCE_1),
-    atom_concat(CHECK_INSTANCE_1, ATOM_CLASS, CHECK_INSTANCE_2),
-    atom_concat(CHECK_INSTANCE_2, '),', CHECK_INSTANCE),
-
-    atom_concat(CHECK_INSTANCE, ATOM_BODY, BODY_CHECKED),
+    atom_concat(TO_APPEND, ATOM_BODY, BODY_CHECKED),
     atom_concat(ATOM_METHOD_HEAD, ' :- ', METHOD_WOUT_BODY),
     atom_concat(METHOD_WOUT_BODY, BODY_CHECKED, METHOD_WITHOUT_END),
-    atom_concat(METHOD_WITHOUT_END, ',!.', METHOD_WOUT_THIS),
-    replace_words(METHOD_WOUT_THIS, 'this', 'THIS', REPLACED_BODY), %% NON FUNZIONA
+    atom_concat(METHOD_WITHOUT_END, '.', METHOD_WOUT_THIS),
+    replace_words(METHOD_WOUT_THIS, 'this', 'THIS', REPLACED_BODY),
     atom_to_term(REPLACED_BODY, METHOD, _),
     assert(METHOD).
 
-%% replace_words/4 sostituisce tutte le occorrenze di una parola in una stringa con un'altra parola
+    
+%% replace_words/4 sostituisce tutte le occorrenze di una 
+%% parola in una stringa con un'altra parola
 replace_words(STRING, SUBSTRING, REPLACEMENT, RESULT) :-
     atom(STRING),
     atom(SUBSTRING),
     atom(REPLACEMENT),
     var(RESULT),
     (   
-        sub_atom(STRING, Before, Length, After, SUBSTRING)
-    ->  sub_atom(STRING, 0, Before, _, Start),
-        sub_atom(STRING, _, After, 0, End),
-        atomic_list_concat([Start, REPLACEMENT, End], TempResult),
-        replace_words(TempResult, SUBSTRING, REPLACEMENT, RESULT)
+        sub_atom(STRING, BEFORE, _, AFTER, SUBSTRING)
+    ->  sub_atom(STRING, 0, BEFORE, _, START),
+        sub_atom(STRING, _, AFTER, 0, END),
+        atomic_list_concat([START, REPLACEMENT, END], TEMP_RESULT),
+        replace_words(TEMP_RESULT, SUBSTRING, REPLACEMENT, RESULT)
     ;   RESULT = STRING
     ).
 
@@ -245,19 +250,48 @@ extract_fields([FIELD | FIELDS], [NAME = VALUE | RESULT]) :-
 
 %% overwrite_fields/3 sovrascrive i campi
 %% caso base
-overwrite_fields([], _, _):-  %%Caso in cui ho inserito un campo non presente nella classe
+%% Caso in cui ho inserito un campo non presente nella classe
+overwrite_fields([], _, _):-  
     false,
     !.
 overwrite_fields([], [], _):-
     !.
 %% caso ricorsivo
-overwrite_fields([FIELD = VALUE | FIELDS], [FIELD = VALUE_2 | FIELDS_2], [FIELD = VALUE_2 | RESULT]):-     
+overwrite_fields([FIELD = _ | FIELDS], 
+        [FIELD = VALUE_2 | FIELDS_2], 
+        [FIELD = VALUE_2 | RESULT]):-     
     atom(FIELD),
     var(RESULT),
     overwrite_fields(FIELDS, FIELDS_2, RESULT),
     !.
 %% caso ricorsivo 2
-overwrite_fields([FIELD = VALUE | FIELDS], FIELDS_2, [FIELD = VALUE | RESULT]):-
+overwrite_fields([FIELD = VALUE | FIELDS], 
+        FIELDS_2, 
+        [FIELD = VALUE | RESULT]):-
     atom(FIELD),
     var(RESULT),
     overwrite_fields(FIELDS, FIELDS_2, RESULT).
+
+
+%% is_a_child/2 dice se è un'istanza di quella classe
+is_a_child(INSTANCE_NAME, PARENT):-
+    atom(INSTANCE_NAME),
+    atom(PARENT),
+    instance(INSTANCE_NAME, CLASS_NAME, _),
+    get_all_parents([CLASS_NAME], PARENTS),
+    member(PARENT, PARENTS).
+
+%% get_all_parents/2 recupera i genitori e li mette in PARENTS
+%% caso base
+get_all_parents([], []).
+%% caso ricorsivo
+get_all_parents([CLASS_NAME | _], PARENTS):- 
+    get_parents(CLASS_NAME, ALL_PARENTS),
+    get_all_parents(ALL_PARENTS, PARENTS_REST),
+    append(ALL_PARENTS, PARENTS_REST, PARENTS).
+
+%% get_parents/2 recupera i genitori e li mette in PARENTS
+get_parents(C, PARENTS):-
+    atom(C),
+    is_class(C),
+    class(C, PARENTS, _).
