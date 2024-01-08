@@ -88,7 +88,9 @@ is_instance(INSTANCE_NAME):-
 is_instance(INSTANCE_NAME, CLASS_NAME):-
     atom(INSTANCE_NAME),
     atom(CLASS_NAME),
-    instance(INSTANCE_NAME, CLASS_NAME, _);
+    instance(INSTANCE_NAME, CLASS_NAME, _).
+
+is_instance(INSTANCE_NAME, CLASS_NAME):-
     is_a_child(INSTANCE_NAME, CLASS_NAME).
 
 %% inst/2 recupera l'istanza
@@ -200,14 +202,13 @@ replace_words(STRING, SUBSTRING, REPLACEMENT, RESULT) :-
     atom(SUBSTRING),
     atom(REPLACEMENT),
     var(RESULT),
-    (   
-        sub_atom(STRING, BEFORE, _, AFTER, SUBSTRING)
-    ->  sub_atom(STRING, 0, BEFORE, _, START),
-        sub_atom(STRING, _, AFTER, 0, END),
-        atomic_list_concat([START, REPLACEMENT, END], TEMP_RESULT),
-        replace_words(TEMP_RESULT, SUBSTRING, REPLACEMENT, RESULT)
-    ;   RESULT = STRING
-    ).
+    sub_atom(STRING, BEFORE, _, AFTER, SUBSTRING),
+    sub_atom(STRING, 0, BEFORE, _, START),
+    sub_atom(STRING, _, AFTER, 0, END),
+    atomic_list_concat([START, REPLACEMENT, END], TEMP_RESULT),
+    replace_words(TEMP_RESULT, SUBSTRING, REPLACEMENT, RESULT).
+
+replace_words(STRING, _, _, STRING).
 
 %% method_exists/2 dice se il metodo esiste
 method_exists(CLASS_NAME, METHOD_NAME):-
