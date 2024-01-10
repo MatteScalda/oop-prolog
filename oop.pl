@@ -16,7 +16,8 @@ def_class(CLASS_NAME, PARENTS, PARTS):-
     are_classes(PARENTS),
     get_classes_parts(PARENTS, PARENTS_PARTS),
     append(PARENTS_PARTS, PARTS, ALL_PARTS),
-    assert(class(CLASS_NAME, PARENTS, ALL_PARTS)),
+    set_default_type(ALL_PARTS, PARTS_WITH_DEFAULT_TYPE),
+    assert(class(CLASS_NAME, PARENTS, PARTS_WITH_DEFAULT_TYPE)),
     get_methods(PARTS, METHODS),
     load_methods(METHODS, CLASS_NAME).
 
@@ -34,6 +35,7 @@ make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
     is_class(CLASS_NAME),
     get_class_parts(CLASS_NAME, PARTS),
     get_fields(PARTS, CLASS_FIELDS),
+    control_type(FIELDS, CLASS_NAME),
     extract_fields(CLASS_FIELDS, FIELDS_EXTRACTED),
     overwrite_fields(FIELDS_EXTRACTED, FIELDS, FIELDS_OVERWRITTEN),
     assert(instance(INSTANCE_NAME, CLASS_NAME, FIELDS_OVERWRITTEN)).
@@ -49,14 +51,12 @@ make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
 
 %% make/3 crea un'istanza di una classe (instance-name è termine)
 make(INSTANCE_NAME, CLASS_NAME, _):-
-    atom(CLASS_NAME),
+    atom(CLASS_NAME),  
     is_class(CLASS_NAME),
     INSTANCE_NAME =.. Instance,
     second(Instance, X),
     is_instance(X), 
     !.
-
-
 %% utilities
 
 %% is_list_atoms/1 dice se è una lista di atomi
@@ -83,15 +83,21 @@ are_classes([CLASS | CLASS_NAMES]):-
 is_instance(INSTANCE_NAME):-
     atom(INSTANCE_NAME),
     instance(INSTANCE_NAME, _, _).
+    
+is_instance(INSTANCE_NAME, CLASS_NAME):-
+    is_a_child(INSTANCE_NAME, CLASS_NAME).
 
 %% is_instance/2 dice se è un'istanza di quella classe
 is_instance(INSTANCE_NAME, CLASS_NAME):-
     atom(INSTANCE_NAME),
     atom(CLASS_NAME),
+    is_class(CLASS_NAME),
+    !,
     instance(INSTANCE_NAME, CLASS_NAME, _).
 
-is_instance(INSTANCE_NAME, CLASS_NAME):-
-    is_a_child(INSTANCE_NAME, CLASS_NAME).
+%% is_instance/2 dice se è un'istanza di quella classe o se è di quel tipo
+is_instance(VALUE, TYPE):-
+    is_of_type(TYPE, VALUE).
 
 %% inst/2 recupera l'istanza
 inst(INSTANCE_NAME, INSTANCE):-
@@ -107,18 +113,17 @@ field(INSTANCE_NAME, FIELD_NAME, RESULT):-
     instance(INSTANCE_NAME, _, FIELDS),
     member(FIELD_NAME = RESULT, FIELDS).
 
-%% fieldx/3 recupera il valore di più campi
-fieldx(_, [], []).
-fieldx(INSTANCE, [FIELD | FIELD_NAMES], RESULT):-
-    atom(INSTANCE),
-    var(RESULT),
+%% fieldx/3 recupera il valore di un campo
+fieldx(INSTANCE, [LAST_FIELD], RESULT):-
     is_instance(INSTANCE),
-    is_list_atoms(FIELD_NAMES),
+    field(INSTANCE, LAST_FIELD, RESULT).
+    
+fieldx(INSTANCE, [FIELD | FIELD_NAMES], RESULT):-
+    is_instance(INSTANCE),
     field(INSTANCE, FIELD, VAL),
-    fieldx(INSTANCE, FIELD_NAMES, RESULT_TAIL),
-    RESULT = [FIELD = VAL | RESULT_TAIL],
-    !.
-
+    is_instance(VAL),
+    fieldx(VAL, FIELD_NAMES, RESULT).
+    
 %% get_methods/2 caso base
 get_methods([], _).
 
@@ -132,7 +137,7 @@ get_methods([_ | PARTS], METHODS) :-
     get_methods(PARTS, METHODS).
 
 %% get_fields/2 caso base
-get_fields([], _).
+get_fields([], _):- !.
 
 %% get_fields/2 prende i metodi e li mette in METHODS
 get_fields([P | PARTS], [P | FIELDS]) :-
@@ -239,13 +244,16 @@ get_class_parts(CLASS, PART):-
 %% extract_field/3 estrae il nome e il valore di un campo
 extract_field(FIELD, NAME, VALUE) :- 
     FIELD =.. [_, NAME, VALUE].
+%% extract_field/3 estrae il nome, il valore e il tipo di un campo
+extract_field(FIELD, NAME, VALUE, TYPE) :- 
+    FIELD =.. [_, NAME, VALUE, TYPE].
 
-%% extract_fields/2 estrae il nome e il valore di più campi
+%% extract_fields/2 estrae il nome, il valore e i tipi di più campi
 %% caso base
 extract_fields([], []).
 %% caso ricorsivo
-extract_fields([FIELD | FIELDS], [NAME = VALUE | RESULT]) :-
-    extract_field(FIELD, NAME, VALUE),
+extract_fields([FIELD | FIELDS], [NAME = VALUE : TYPE| RESULT]) :-
+    extract_field(FIELD, NAME, VALUE, TYPE),
     extract_fields(FIELDS, RESULT),
     !.
 
@@ -296,3 +304,38 @@ get_parents(C, PARENTS):-
     atom(C),
     is_class(C),
     class(C, PARENTS, _).
+
+%%set_default_type/2 setta il tipo di default
+%%caso base
+set_default_type([], _).
+%%caso type non inserito
+set_default_type([field(NAME, VALUE) | FIELDS], [field(NAME, VALUE, any) | RESULT]):-
+    set_default_type(FIELDS, RESULT),
+    !.
+%% caso type già inserito oppure P = method
+set_default_type([P | PARTS], [P | RESULT]):-
+    set_default_type(PARTS, RESULT).
+    
+%% control_type/2 controlla che i campi siano del tipo giusto
+%% caso base
+control_type([], _).
+
+%% caso ricorsivo
+control_type([NAME = VALUE | FIELDS], CLASS_NAME):-
+    class(CLASS_NAME, _, PARTS),
+    get_fields(PARTS, CLASS_FIELDS),
+    extract_fields(CLASS_FIELDS, EX_CLASS_FIELDS),
+    get_type(NAME, EX_CLASS_FIELDS, TYPE),
+    is_instance(VALUE, TYPE),
+    !,
+    control_type(FIELDS, CLASS_NAME).
+    
+%% get_type/3 recupera il tipo di un campo
+get_type(_, [], _):-
+    false.
+get_type(FIELD_NAME, [FIELD_NAME = FIELD_VALUE : TYPE| _], TYPE) :- 
+    nonvar(FIELD_NAME), 
+    nonvar(FIELD_VALUE),
+    !.
+get_type(FIELD_NAME, [_ | CLASS_FIELDS], TYPE):-
+    get_type(FIELD_NAME, CLASS_FIELDS, TYPE).
