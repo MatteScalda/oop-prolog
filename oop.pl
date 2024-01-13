@@ -47,17 +47,26 @@ make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
     !,
     atom(CLASS_NAME),
     is_class(CLASS_NAME),
-    INSTANCE = instance(INSTANCE_NAME, CLASS_NAME, FIELDS).
+    get_class_parts(CLASS_NAME, PARTS),
+    get_fields(PARTS, CLASS_FIELDS),
+    control_type(FIELDS, CLASS_NAME),
+    extract_fields(CLASS_FIELDS, FIELDS_EXTRACTED),
+    overwrite_fields(FIELDS_EXTRACTED, FIELDS, FIELDS_OVERWRITTEN),
+    INSTANCE_NAME = instance(_, CLASS_NAME, FIELDS_OVERWRITTEN).
 
 %% make/3 crea un'istanza di una classe (instance-name è termine)
-make(INSTANCE_NAME, CLASS_NAME, _):-
-    atom(CLASS_NAME),  
+make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
+    atom(CLASS_NAME),
     is_class(CLASS_NAME),
-    INSTANCE_NAME =.. Instance,
-    second(Instance, X),
-    is_instance(X), 
-    !.
-%% utilities
+    get_class_parts(CLASS_NAME, PARTS),
+    get_fields(PARTS, CLASS_FIELDS),
+    control_type(FIELDS, CLASS_NAME),
+    extract_fields(CLASS_FIELDS, FIELDS_EXTRACTED),
+    overwrite_fields(FIELDS_EXTRACTED, FIELDS, FIELDS_OVERWRITTEN),
+    INSTANCE_NAME = instance(_, CLASS_NAME, FIELDS_OVERWRITTEN).
+%% ---------
+%% UTILITIES |
+%% ---------
 
 %% is_list_atoms/1 dice se è una lista di atomi
 is_list_atoms([]).
@@ -117,7 +126,7 @@ field(INSTANCE_NAME, FIELD_NAME, RESULT):-
 fieldx(INSTANCE, [LAST_FIELD], RESULT):-
     is_instance(INSTANCE),
     field(INSTANCE, LAST_FIELD, RESULT).
-    
+
 fieldx(INSTANCE, [FIELD | FIELD_NAMES], RESULT):-
     is_instance(INSTANCE),
     field(INSTANCE, FIELD, VAL),
