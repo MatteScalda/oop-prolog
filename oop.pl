@@ -1,6 +1,5 @@
 :- dynamic class/1.
 
-%% def_class
 %% def_class/2 definisce una classe con parents
 def_class(CLASS_NAME, PARENTS):-
     atom(CLASS_NAME),
@@ -21,7 +20,6 @@ def_class(CLASS_NAME, PARENTS, PARTS):-
     get_methods(PARTS, METHODS),
     load_methods(METHODS, CLASS_NAME).
 
-%%make
 %% make/2 crea un'istanza di una classe
 make(INSTANCE_NAME, CLASS_NAME):-
     make(INSTANCE_NAME, CLASS_NAME, []),
@@ -40,7 +38,6 @@ make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
     overwrite_fields(FIELDS_EXTRACTED, FIELDS, FIELDS_OVERWRITTEN),
     assert(instance(INSTANCE_NAME, CLASS_NAME, FIELDS_OVERWRITTEN)).
 
-%% //TODO capire che cazzo fanno
 %% make/3 crea un'istanza di una classe (instance-name è variabile)
 make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
     var(INSTANCE_NAME),
@@ -92,6 +89,8 @@ are_classes([CLASS | CLASS_NAMES]):-
 is_instance(INSTANCE_NAME):-
     atom(INSTANCE_NAME),
     instance(INSTANCE_NAME, _, _).
+
+is_instance(instance(_,_,_)).
     
 is_instance(INSTANCE_NAME, CLASS_NAME):-
     is_a_child(INSTANCE_NAME, CLASS_NAME).
@@ -103,6 +102,12 @@ is_instance(INSTANCE_NAME, CLASS_NAME):-
     is_class(CLASS_NAME),
     !,
     instance(INSTANCE_NAME, CLASS_NAME, _).
+    
+is_instance(instance(_, CLASS_NAME, _), CLASS_NAME):-
+    atom(CLASS_NAME),
+    is_class(CLASS_NAME),
+    !.
+
 
 %% is_instance/2 dice se è un'istanza di quella classe o se è di quel tipo
 is_instance(VALUE, TYPE):-
@@ -111,28 +116,35 @@ is_instance(VALUE, TYPE):-
 %% inst/2 recupera l'istanza
 inst(INSTANCE_NAME, INSTANCE):-
     atom(INSTANCE_NAME),
-    is_instance(INSTANCE_NAME),
-    instance(INSTANCE_NAME, _, INSTANCE).
+    instance(INSTANCE_NAME, CLASS_NAME, FIELDS),
+    is_instance(INSTANCE_NAME, CLASS_NAME),
+    INSTANCE = instance(INSTANCE_NAME, CLASS_NAME, FIELDS).
 
-%% field/3 recupera il valore di un campo
 field(INSTANCE_NAME, FIELD_NAME, RESULT):-
     atom(INSTANCE_NAME),
+    !,
     is_instance(INSTANCE_NAME),
     var(RESULT),
     instance(INSTANCE_NAME, _, FIELDS),
     member(FIELD_NAME = RESULT, FIELDS).
 
-%% fieldx/3 recupera il valore di un campo
-fieldx(INSTANCE, [LAST_FIELD], RESULT):-
-    is_instance(INSTANCE),
-    field(INSTANCE, LAST_FIELD, RESULT).
+field(instance(INSTANCE_NAME, _, FIELDS), FIELD_NAME, RESULT):-
+    field(INSTANCE_NAME, FIELD_NAME, RESULT).
 
-fieldx(INSTANCE, [FIELD | FIELD_NAMES], RESULT):-
-    is_instance(INSTANCE),
-    field(INSTANCE, FIELD, VAL),
+%% fieldx/3 recupera il valore di un campo
+fieldx(INSTANCE_NAME, [LAST_FIELD], RESULT):-
+    is_instance(INSTANCE_NAME),
+    field(INSTANCE_NAME, LAST_FIELD, RESULT).
+
+fieldx(INSTANCE_NAME, [FIELD | FIELD_NAMES], RESULT):-
+    is_instance(INSTANCE_NAME),
+    field(INSTANCE_NAME, FIELD, VAL),
     is_instance(VAL),
     fieldx(VAL, FIELD_NAMES, RESULT).
-    
+
+fieldx(instance(INSTANCE_NAME, _, _), FIELDS, RESULT):-
+    fieldx(INSTANCE_NAME, FIELDS, RESULT).
+
 %% get_methods/2 caso base
 get_methods([], _).
 
