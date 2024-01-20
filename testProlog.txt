@@ -16,32 +16,3 @@ talk(b1).
 def_class(prova, [person], [field(attr, "prova", string), method(proviamo, [], (write("sono la prova")))]).
 make(prv, prova, [name = "smelele", attr = "cambio"]).
 inst(prv, I).
-
-
-
-%% field/3 recupera il valore di un campo 
-field(VAR, FIELD_NAME, RESULT):-
-    var(RESULT),
-    var(VAR),
-    !,
-    atom(FIELD_NAME),
-    VAR = instance(INSTANCE_NAME, _, FIELDS),
-    %%member(FIELD_NAME = RESULT, FIELDS).
-    instance(INSTANCE_NAME, _, FIELDS),
-    member(FIELD_NAME = RESULT, FIELDS).
-
-
-field(INSTANCE_NAME, FIELD_NAME, RESULT):-
-    atom(INSTANCE_NAME),
-    !,
-    is_instance(INSTANCE_NAME),
-    var(RESULT),
-    instance(INSTANCE_NAME, _, FIELDS),
-    member(FIELD_NAME = RESULT, FIELDS).
-
-field(VAR, FIELD_NAME, RESULT):-
-    nonvar(VAR),
-    VAR = instance(_, _, FIELDS),
-    !,
-    atom(FIELD_NAME),
-    member(FIELD_NAME = RESULT, FIELDS).

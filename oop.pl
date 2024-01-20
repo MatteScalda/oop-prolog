@@ -1,5 +1,9 @@
 :- dynamic class/1.
 
+%% ---------
+%%   MAIN  |
+%% ---------
+
 %% def_class/2 definisce una classe con parents
 def_class(CLASS_NAME, PARENTS):-
     atom(CLASS_NAME),
@@ -61,29 +65,6 @@ make(INSTANCE_NAME, CLASS_NAME, FIELDS):-
     extract_fields(CLASS_FIELDS, FIELDS_EXTRACTED),
     overwrite_fields(FIELDS_EXTRACTED, FIELDS, FIELDS_OVERWRITTEN),
     INSTANCE_NAME = instance(_, CLASS_NAME, FIELDS_OVERWRITTEN).
-%% ---------
-%% UTILITIES |
-%% ---------
-
-%% is_list_atoms/1 dice se è una lista di atomi
-is_list_atoms([]).
-is_list_atoms([A|ATOMS]):-
-    atom(A),
-    is_list_atoms(ATOMS).
-
-
-%% is_class/1 dice se è una classe
-is_class(CLASS_NAME):-
-    atom(CLASS_NAME),
-    current_predicate(class/1), !,
-    class(CLASS_NAME, _, _).
-
-%% are_classes/1 dice se una lista è formata da 
-%% classi precedentemente dichiarate
-are_classes([]).
-are_classes([CLASS | CLASS_NAMES]):-
-    is_class(CLASS),
-    are_classes(CLASS_NAMES).
 
 %% is_instance/1 dice se è un'istanza
 is_instance(INSTANCE_NAME):-
@@ -107,7 +88,6 @@ is_instance(instance(_, CLASS_NAME, _), CLASS_NAME):-
     atom(CLASS_NAME),
     is_class(CLASS_NAME),
     !.
-
 
 %% is_instance/2 dice se è un'istanza di quella classe o se è di quel tipo
 is_instance(VALUE, TYPE):-
@@ -145,6 +125,60 @@ fieldx(INSTANCE_NAME, [FIELD | FIELD_NAMES], RESULT):-
 fieldx(instance(INSTANCE_NAME, _, _), FIELDS, RESULT):-
     fieldx(INSTANCE_NAME, FIELDS, RESULT).
 
+%% load_method/2 carica un metodo nella base di conoscenza
+load_method(method(METHOD_NAME, ARGS, BODY), CLASS_NAME):- 
+    append(['this'], ARGS, ARGS_THIS),
+    term_to_atom(METHOD_NAME, ATOM_METHOD_NAME),
+    append([ATOM_METHOD_NAME], ARGS_THIS, HEAD),
+    METHOD_HEAD =.. HEAD,
+
+    term_to_atom(METHOD_NAME, ATOM_NAME),
+    term_to_atom(METHOD_HEAD, ATOM_METHOD_HEAD),
+    term_to_atom(BODY, ATOM_BODY),
+    term_to_atom(CLASS_NAME, ATOM_CLASS),
+
+    %%is_instance('this', CLASS_NAME), !,
+    atom_concat('is_instance(this, ', ATOM_CLASS, CHECK_INSTANCE_1),
+    atom_concat(CHECK_INSTANCE_1, '),!,', CHECK_INSTANCE),
+
+    %aggiunge al body il controllo per vedere se il metodo esiste
+    atom_concat(CHECK_INSTANCE, 'method_exists(', CHECK_CALL_1), 
+    atom_concat(CHECK_CALL_1, ATOM_CLASS, CHECK_CALL_2),
+    atom_concat(CHECK_CALL_2, ', ', CHECK_CALL_3), 
+    atom_concat(CHECK_CALL_3, ATOM_NAME, CHECK_CALL), 
+    atom_concat(CHECK_CALL, '),', TO_APPEND), 
+
+    atom_concat(TO_APPEND, ATOM_BODY, BODY_CHECKED),
+    atom_concat(ATOM_METHOD_HEAD, ' :- ', METHOD_WOUT_BODY),
+    atom_concat(METHOD_WOUT_BODY, BODY_CHECKED, METHOD_WITHOUT_END),
+    atom_concat(METHOD_WITHOUT_END, '.', METHOD_WOUT_THIS),
+    replace_words(METHOD_WOUT_THIS, 'this', 'THIS', REPLACED_BODY),
+    atom_to_term(REPLACED_BODY, METHOD, _),
+    assert(METHOD).
+
+%% ---------
+%% UTILITIES |
+%% ---------
+
+%% is_list_atoms/1 dice se è una lista di atomi
+is_list_atoms([]).
+is_list_atoms([A|ATOMS]):-
+    atom(A),
+    is_list_atoms(ATOMS).
+
+%% is_class/1 dice se è una classe
+is_class(CLASS_NAME):-
+    atom(CLASS_NAME),
+    current_predicate(class/1), !,
+    class(CLASS_NAME, _, _).
+
+%% are_classes/1 dice se una lista è formata da 
+%% classi precedentemente dichiarate
+are_classes([]).
+are_classes([CLASS | CLASS_NAMES]):-
+    is_class(CLASS),
+    are_classes(CLASS_NAMES).
+
 %% get_methods/2 caso base
 get_methods([], _).
 
@@ -160,7 +194,7 @@ get_methods([_ | PARTS], METHODS) :-
 %% get_fields/2 caso base
 get_fields([], _):- !.
 
-%% get_fields/2 prende i metodi e li mette in METHODS
+%% get_fields/2 prende i fields e li mette in FIELDS
 get_fields([P | PARTS], [P | FIELDS]) :-
     is_field(P),
     !,
@@ -188,38 +222,6 @@ load_methods([M | METHODS], CLASS_NAME):-
     load_methods(METHODS, CLASS_NAME).
 %% caso base
 load_methods([], _).
-
-%% load_method/2 carica un metodo nella base di conoscenza
-load_method(method(METHOD_NAME, ARGS, BODY), CLASS_NAME):- 
-    append(['this'], ARGS, ARGS_THIS),
-    term_to_atom(METHOD_NAME, ATOM_METHOD_NAME),
-    append([ATOM_METHOD_NAME], ARGS_THIS, HEAD),
-    METHOD_HEAD =.. HEAD,
-
-    term_to_atom(METHOD_NAME, ATOM_NAME),
-    term_to_atom(METHOD_HEAD, ATOM_METHOD_HEAD),
-    term_to_atom(BODY, ATOM_BODY),
-    term_to_atom(CLASS_NAME, ATOM_CLASS),
-
-    %%is_instance('this', CLASS_NAME), !,
-    atom_concat('is_instance(this, ', ATOM_CLASS, CHECK_INSTANCE_1),
-    atom_concat(CHECK_INSTANCE_1, '),!,', CHECK_INSTANCE),
-
-    %aggiunge al body il controllo per vedere se il metodo esiste nell'istanza
-    atom_concat(CHECK_INSTANCE, 'method_exists(', CHECK_CALL_1), 
-    atom_concat(CHECK_CALL_1, ATOM_CLASS, CHECK_CALL_2),
-    atom_concat(CHECK_CALL_2, ', ', CHECK_CALL_3), 
-    atom_concat(CHECK_CALL_3, ATOM_NAME, CHECK_CALL), 
-    atom_concat(CHECK_CALL, '),', TO_APPEND), 
-
-    atom_concat(TO_APPEND, ATOM_BODY, BODY_CHECKED),
-    atom_concat(ATOM_METHOD_HEAD, ' :- ', METHOD_WOUT_BODY),
-    atom_concat(METHOD_WOUT_BODY, BODY_CHECKED, METHOD_WITHOUT_END),
-    atom_concat(METHOD_WITHOUT_END, '.', METHOD_WOUT_THIS),
-    replace_words(METHOD_WOUT_THIS, 'this', 'THIS', REPLACED_BODY),
-    atom_to_term(REPLACED_BODY, METHOD, _),
-    assert(METHOD).
-
     
 %% replace_words/4 sostituisce tutte le occorrenze di una 
 %% parola in una stringa con un'altra parola
@@ -330,7 +332,7 @@ get_parents(C, PARENTS):-
 %%caso base
 set_default_type([], _).
 %%caso type non inserito
-set_default_type([field(NAME, VALUE) | FIELDS], [field(NAME, VALUE, any) | RESULT]):-
+set_default_type([field(N, V) | FIELDS], [field(N, V, any) | RESULT]):-
     set_default_type(FIELDS, RESULT),
     !.
 %% caso type già inserito oppure P = method
