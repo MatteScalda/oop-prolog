@@ -1,230 +1,72 @@
-# Introduzione
+# OOΠ in Prolog
+
+## Descrizione
 
 Ai tempi di Simula e del primo Smalltalk, molto molto tempo prima di Python,
 Ruby, Perl e SLDJ, i programmatori Lisp già producevano una pletora di
-linguaggi object oriented. Il vostro progetto consiste nella costruzione di
+linguaggi object oriented. Il progetto consiste nella costruzione di
 un’estensione “object oriented” di Common Lisp, chiamata OOΛ, e di
 un’estensione “object oriented” di Prolog, chiamata OOΠ.
 
-# Primitive
+## Funzionalità Principali
 
-## def_class
+-   `def_class`: definisce una classe con <PARENTS> e <PARTS> (Fields o Methods)
+-   `make`: crea un'istanza di una classe (anche con Field passati)
+-   `is_instance`: controlla se <INSTANCE_NAME> è istanza (di <CLASS_NAME>)
+-   `inst`: ritorna l'istanza così come create da `make`
+-   `field`: ritorna il valore di un <FIELD> in un'istanza
+-   `fieldx`: ritorna il valore di un <FIELD> percorrendo una catena di attributi
 
-**SINTASSI:
-def_class ’(’ class-name ’,’ parents ’,’ slot-values ’)’**
+## Installazione
 
-Definisce la struttura di una classe e la memorizza nella
-"base di conoscenza" di Prolog.
+Per utilizzare questo progetto, devi avere un interprete Prolog installato sul tuo sistema. Puoi scaricare SWI-Prolog da [qui](http://www.swi-prolog.org/Download.html).
 
-Carica inoltre eventuali metodi in slot-values
+Dopo aver installato Prolog, puoi aprire il file `oop.pl` in Prolog.
 
-Utilizziamo un'altra variante di def_class/3 senza
-metodi dentro slot-values
+## Utilizzo
 
-## create
+Per creare una nuova classe utilizza il predicato `def_class` come nell'esempio:
 
-**SINTASSI:
-create ’(’ instance-name ’,’
-class-name ’,’
-’[’ [ slot-name ’=’ value
-[ ’,’ slot-name ’=’ value ]_ ]_
-’]’
-’)’**
+```
+def_class(person, [human], [field(name, "Matteo", string), field(age, 50), method(talk, [], (write("Ciao")))]).
+```
 
-Crea un'istanza dato il nome dell'istanza e della classe
+Per creare un'istanza di una classe utilizza il predicato `make` come nell'esempio:
 
-A seconda di che cosa è il primo argomento instance-name,
-il comportamento di create cambia.
+```
+make(p1, person, [age = 21]).
+```
 
-Il primo argomento può assumere il valore di simbolo,
-variabile, oppure un termine che unifica con la nuova istanza
-appena creata
+Poi utilizza `inst`, `field` e `fieldx` per accedere alle istanze ed i loro campi, per esempio:
 
-## is_class
+```
+inst(p1, P), field(P, name, Result).
+```
 
-**SINTASSI:
-is_class ’(’ class-name ’)’**
+Puoi utilizzare i metodi che hai passato ad una classe seguendo la sintassi di SWI-Prolog:
 
-Controlla se class-name è il nome di una classe
+`talk(p1)` oppure `inst(p1, Persona), talk(Persona).`
 
-## is_instance
+## Alcuni Test Effettuati
 
-**SINTASSI:
-is_instance ’(’ value ’)’
-is_instance ’(’ value ’,’ class-name ’)’**
+```
+def_class(person, [], [field(name, "matteo"), method(talk_p, [], (write("sono la persona")))]),
+def_class(group, [], [field(prs, "", person), method(talk_g, [], (write("sono il gruppo")))]),
+def_class(big, [], [field(grp, "", group), method(talk, [], (write("sono il gruppone")))]).
+make(p1, person, [name = "prova"]),
+make(g1, group, [prs = p1]),
+make(b1, big, [grp = g1]).
 
-Controlla se l'istanza passata con il nome class-name
-è un'istanza
+field(p1, name, R).
+fieldx(b1, [grp, prs, name], R).
 
-## inst
+inst(p1, P), field(P, name, R).
+inst(b1, B), fieldx(B, [grp, prs, name], R).
+```
 
-**SINTASSI:
-inst ’(’ instance-name ’,’ instance ’)’**
+## Autori e Informazioni
 
-Dato il nome di un'istanza, ritorna la vera e propria istanza
+Questo progetto è stato fatto per l'esame di Linguaggi di Programmazione dell'Università
+degli Studi di Milano-Bicocca.
 
-## slot
-
-**SINTASSI:
-slot ’(’ instance ’,’ slot-name ’,’ result ’)’**
-
-Estrae da un'istanza con campo slot-name il suo valore
-result.
-
-Può anche estrarre result da classi e parents.
-
-## slotx
-
-**SINTASSI:
-slotx ’(’ instance ’,’ slot-names ’,’ result ’)’**
-
-Estrae il valore da una classe percorrendo una catena di
-attributi.
-
-# Funzioni
-
-## create_method
-
-**SINTASSI:
-create_method(MethodName = method(Args, MethodBody), Class_name)**
-
-Si occupa di creare e caricare il metodo
-
-## get_data
-
-**SINTASSI:
-get_data(Instance, Slot_name, Result)**
-
-Recupera il valore di slot-name data un'istanza.
-
-Può essere utilizzato anche su classi.
-
-## load_methods
-
-**SINTASSI:
-load_methods([Method | Rest], Class_name)**
-
-Chiama create_method per ogni metodo presente nella lista
-
-## get_parents
-
-**SINTASSI:
-get_parents(Class, Result)**
-
-Data una classe restituisce tutti i suoi genitori e toglie i duplicati
-
-## parents
-
-SINTASSI:
-parents([Class | _], Result)
-
-Data una classe restituisce tutti i suoi genitori
-
-# Predicati Utili
-
-## remove_duplicates
-
-Data in input una lista con duplicati, li rimuove dalla lista
-
-## first
-
-Data in input una lista, restituisce il primo elemento
-
-## tail
-
-Data in input una lista, restituisce la tail
-
-## second
-
-Data in input una lista, restituisce il secondo elemento
-
-## fourth
-
-Data in input una lista, restituisce il quarto elemento
-
-## penultimo
-
-Data in input una lista, restituisce il penultimo elemento
-
-## one
-
-Data in input una lista controlla se è composta da un solo elemento
-
-## is_empty
-
-Data in input una lista, restituisce true se è vuota
-
-## replace_word
-
-Data in input una stringa, una parola da sostituire e la nuova parola,
-restituisce la stringa con la parola sostituita
-
-## replace_ennesima_parola
-
-Data in input una stringa, l'occorrenza della parola, una parola da sostituire e la nuova parola,
-restituisce la stringa con la parola sostituita all'occorrenza specificata
-
-# Alcuni Test Effettuati
-
-def_class(person, [], [name = 'Eve', age = undefined]).
-true.
-
-def_class(student, [person], [name = 'Eva Lu Ator', university = 'Berkeley', talk = method([], (write('My name is '), slot(this, name, N), write(N), nl, write('My age is '), slot(this, age, A), write(A), nl))]).
-true.
-
-def_class(studente_bicocca, [student],[talk = method([],(write('Mi chiamo '),slot(this, name, N),write(N),nl,write('e studio alla Bicocca.'),nl)),to_string = method([ResultingString],(with_output_to(string(ResultingString),(slot(this, name, N),slot(this, university, U),format('#<~w Student ~w>',[U, N]))))), university = 'UNIMIB']).
-true.
-
-create(eve, person).
-true.
-
-create(adam, person, [name = 'Adam']).
-true.
-
-create(s1, student, [name = 'Eduardo De Filippo', age = 108]).
-true.
-
-create(s2, student).
-true.
-
-slot(eve, age, A).
-A = undefined.
-
-slot(s1, age, A).
-A = 108.
-
-slot(s2, name, N).
-N = 'Eva Lu Ator'.
-
-slot(eve, address, Address).
-false.
-
-talk(s1).
-My name is Eduardo De Filippo
-My age is 108
-true.
-
-talk(eve).
-false.
-
-create(ernesto, studente_bicocca, [name = 'Ernesto']).
-true.
-
-talk(ernesto).
-Mi chiamo Ernesto
-e studio alla Bicocca.
-true.
-
-create(test, studente_bicocca, [talk = method([], (write('Test metodo instanza, my name '), slot(this, name, N), write(N), nl, write('My age is '), slot(this, age, A), write(A), nl))]).
-true.
-
-talk(test).
-Test metodo instanza, my name Eva Lu Ator
-My age is undefined
-true.
-
-# Autori e Info
-
-ENG: This is an italian project, Doc and comments in italian. Grade: 28/30
-
-Made by Elio Gargiulo, Stefano Rigato for UNIMIB Linguaggi di Programmazione Course.
+Fatto da Mecenero Matteo [] e Scaldaferri Matteo [912001].
