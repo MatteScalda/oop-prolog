@@ -90,4 +90,4 @@ inst(b1, B), fieldx(B, [grp, prs, name], R).
 Questo progetto è stato fatto per l'esame di
 Linguaggi di Programmazione dell'Università degli Studi di Milano-Bicocca.
 
-Fatto da Mecenero Matteo [] e Scaldaferri Matteo [912001].
+Fatto da Mecenero Matteo -894512- e Scaldaferri Matteo -912001-

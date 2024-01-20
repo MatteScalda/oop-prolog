@@ -1,3 +1,6 @@
+%%%% Scaldaferri Matteo 912001
+%%%% Collaboratore: Mecenero Matteo 894512
+
 :- dynamic class/1.
 
 %% ---------
@@ -108,7 +111,7 @@ field(INSTANCE_NAME, FIELD_NAME, RESULT):-
     instance(INSTANCE_NAME, _, FIELDS),
     member(FIELD_NAME = RESULT, FIELDS).
 
-field(instance(INSTANCE_NAME, _, FIELDS), FIELD_NAME, RESULT):-
+field(instance(INSTANCE_NAME, _, _), FIELD_NAME, RESULT):-
     field(INSTANCE_NAME, FIELD_NAME, RESULT).
 
 %% fieldx/3 recupera il valore di un campo
